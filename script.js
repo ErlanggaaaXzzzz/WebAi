@@ -1,7 +1,7 @@
 // ============================================================================
 // CONFIGURATION: Ubah teks di bawah dengan URL live Vercel backend lo nantinya!
 // ============================================================================
-const BACKEND_URL = "https://erlanggawebai.netlify.app";
+const BACKEND_URL = "https://devserver-main--erlanggawebai.netlify.app/";
 
 let currentChatId = null;
 let abortController = null;
