@@ -1,3 +1,8 @@
+// ============================================================================
+// CONFIGURATION: Ubah teks di bawah dengan URL live Vercel backend lo nantinya!
+// ============================================================================
+const BACKEND_URL = "https://erlanggawebai.netlify.app";
+
 let currentChatId = null;
 let abortController = null;
 let currentUser = null;
@@ -17,17 +22,10 @@ const historyContainer = document.getElementById('historyContainer');
 const usernameDisplay = document.getElementById('usernameDisplay');
 const toastNotification = document.getElementById('toastNotification');
 
-// Token Handling
-const token = localStorage.getItem('token');
-if (!token) {
-  window.location.href = '/login.html';
-}
-
-// Global Headers Helper
+// Global Headers Helper (Disederhanakan tanpa Token JWT)
 function getHeaders() {
   return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`
+    'Content-Type': 'application/json'
   };
 }
 
@@ -38,19 +36,21 @@ function showError(message) {
   setTimeout(() => { toastNotification.classList.remove('show'); }, 4000);
 }
 
-// Verify auth on start
+// Verify session on start (Disesuaikan langsung membaca API tanpa token)
 async function initSession() {
   try {
-    const res = await fetch('/api/me', { headers: getHeaders() });
-    if (!res.ok) throw new Error('Unauthorized Session');
+    const res = await fetch(`${BACKEND_URL}/api/me`, { headers: getHeaders() });
+    if (!res.ok) throw new Error('Gagal memuat sesi default');
     const data = await res.json();
     currentUser = data.user;
     usernameDisplay.textContent = currentUser.username;
     await loadChatHistory();
     startNewChatSession();
   } catch (err) {
-    localStorage.removeItem('token');
-    window.location.href = '/login.html';
+    showError('Koneksi backend bermasalah. Pastikan BACKEND_URL benar.');
+    // Tetap jalankan sesi chat lokal agar tampilan tidak hang/blank
+    usernameDisplay.textContent = 'Erlangga User';
+    startNewChatSession();
   }
 }
 
@@ -84,7 +84,7 @@ chatInput.addEventListener('keydown', function(e) {
 // Load Chat Logs Sidebar
 async function loadChatHistory() {
   try {
-    const res = await fetch('/api/history', { headers: getHeaders() });
+    const res = await fetch(`${BACKEND_URL}/api/history`, { headers: getHeaders() });
     if (!res.ok) throw new Error();
     const chats = await res.json();
     historyContainer.innerHTML = '';
@@ -267,7 +267,7 @@ async function sendMessage() {
   abortController = new AbortController();
 
   try {
-    const res = await fetch('/api/chat', {
+    const res = await fetch(`${BACKEND_URL}/api/chat`, {
       method: 'POST',
       headers: getHeaders(),
       signal: abortController.signal,
@@ -327,7 +327,7 @@ async function renameChatSession(id) {
   if (!newTitle || !newTitle.trim()) return;
 
   try {
-    const res = await fetch('/api/history', { headers: getHeaders() });
+    const res = await fetch(`${BACKEND_URL}/api/history`, { headers: getHeaders() });
     const chats = await res.json();
     const chatIndex = chats.findIndex(c => c.createdAt === id);
     if(chatIndex !== -1) {
@@ -335,7 +335,7 @@ async function renameChatSession(id) {
       chats[chatIndex].updatedAt = new Date().toISOString();
       
       // Save simulation using rewrite endpoint
-      await fetch('/api/history/update-all', {
+      await fetch(`${BACKEND_URL}/api/history/update-all`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ chats })
@@ -350,7 +350,7 @@ async function renameChatSession(id) {
 async function deleteChatSession(id) {
   if (!confirm('Apakah Anda yakin ingin menghapus percakapan ini?')) return;
   try {
-    const res = await fetch(`/api/history?id=${id}`, {
+    const res = await fetch(`${BACKEND_URL}/api/history?id=${id}`, {
       method: 'DELETE',
       headers: getHeaders()
     });
@@ -374,15 +374,14 @@ btnClearChat.addEventListener('click', () => {
   }
 });
 
-// Logout mechanism execution
-btnLogout.addEventListener('click', async () => {
-  try {
-    await fetch('/api/logout', { method: 'POST', headers: getHeaders() });
-  } catch (e) {}
-  localStorage.removeItem('token');
-  localStorage.removeItem('remember');
-  window.location.href = '/login.html';
-});
+// Logout diganti fungsinya menjadi me-refresh aplikasi ulang secara bersih
+if (btnLogout) {
+  btnLogout.addEventListener('click', () => {
+    if (confirm('Apakah Anda ingin merestart ulang aplikasi?')) {
+      location.reload();
+    }
+  });
+}
 
 function scrollToBottom() {
   messagesWrapper.scrollTop = messagesWrapper.scrollHeight;
