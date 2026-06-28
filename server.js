@@ -1,8 +1,6 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const helmet = require('helmet');
 const compression = require('compression');
 const cors = require('cors');
@@ -13,14 +11,11 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_key_erlangga_ai_2026';
 
-// Database Paths
-const USERS_FILE = path.join(__dirname, 'users.json');
+// Database Path (Hanya butuh chats.json karena tidak ada data user/password lagi)
 const CHATS_FILE = path.join(__dirname, 'chats.json');
 
-// Init Databases if empty safely
-if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, JSON.stringify([]));
+// Init Database safely
 if (!fs.existsSync(CHATS_FILE)) fs.writeFileSync(CHATS_FILE, JSON.stringify([]));
 
 // Helper functions to read/write JSON files safely
@@ -38,7 +33,7 @@ const openai = new OpenAI({
 
 // Security & Optimization Middlewares
 app.use(helmet({
-  contentSecurityPolicy: false, // Allow CDNs script execution smoothly
+  contentSecurityPolicy: false, 
   crossOriginOpenerPolicy: false
 }));
 app.use(compression());
@@ -54,18 +49,8 @@ const globalLimiter = rateLimit({
 });
 app.use('/api/', globalLimiter);
 
-// ====================================
-// BYPASS AUTHENTICATION MIDDLEWARE
-// ====================================
-// Menggantikan fungsi JWT check asli agar otomatis login menggunakan akun dummy permanen
-function authenticateToken(req, res, next) {
-  req.user = {
-    id: 'user_default_erlangga',
-    username: 'Erlangga User',
-    email: 'user@erlangga.ai'
-  };
-  next();
-}
+// ID Pengguna Tetap (Karena tidak ada login, semua chat memakai ID ini)
+const GLOBAL_USER_ID = 'global_user';
 
 // ====================================
 // STATIC FILE SERVING
@@ -76,62 +61,40 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Diarahkan langsung ke index.html karena sistem sudah tidak membutuhkan form login
-app.get('/login', (req, res) => {
-  res.redirect('/');
-});
-
-// ====================================
-// AUTHENTICATION ENDPOINTS API (Bypassed)
-// ====================================
-
-app.post('/api/register', (req, res) => {
-  res.status(201).json({ success: true, message: 'User berhasil dibuat (Bypassed).' });
-});
-
-app.post('/api/login', (req, res) => {
-  // Mengembalikan token dummy agar frontend yang masih membaca localStorage token tidak error
-  res.json({ token: 'dummy_bypass_token_erlangga_ai_2026' });
-});
-
-app.get('/api/me', authenticateToken, (req, res) => {
-  res.json({ user: req.user });
-});
-
-app.post('/api/logout', (req, res) => {
-  res.json({ success: true });
-});
-
 // ====================================
 // CHAT AI LOGIC ENDPOINTS API
 // ====================================
 
-app.get('/api/history', authenticateToken, (req, res) => {
+app.get('/api/me', (req, res) => {
+  // Mengembalikan data user default untuk tampilan nama di pojok aplikasi
+  res.json({ user: { id: GLOBAL_USER_ID, username: 'Erlangga User' } });
+});
+
+app.get('/api/history', (req, res) => {
   const chats = readData(CHATS_FILE);
-  const userChats = chats.filter(c => c.userId === req.user.id);
+  const userChats = chats.filter(c => c.userId === GLOBAL_USER_ID);
   res.json(userChats);
 });
 
-// Support system update-all titles for script.js action execution simulation
-app.post('/api/history/update-all', authenticateToken, (req, res) => {
+app.post('/api/history/update-all', (req, res) => {
   const { chats } = req.body;
   let allChats = readData(CHATS_FILE);
-  // Remove current users' data and replace with modified entries payload safely
-  allChats = allChats.filter(c => c.userId !== req.user.id);
-  chats.forEach(c => { if(c.userId === req.user.id) allChats.push(c); });
+  
+  allChats = allChats.filter(c => c.userId !== GLOBAL_USER_ID);
+  chats.forEach(c => { if(c.userId === GLOBAL_USER_ID) allChats.push(c); });
   writeData(CHATS_FILE, allChats);
   res.json({ success: true });
 });
 
-app.delete('/api/history', authenticateToken, (req, res) => {
+app.delete('/api/history', (req, res) => {
   const { id } = req.query;
   let chats = readData(CHATS_FILE);
-  chats = chats.filter(c => !(c.userId === req.user.id && c.createdAt === Number(id)));
+  chats = chats.filter(c => !(c.userId === GLOBAL_USER_ID && c.createdAt === Number(id)));
   writeData(CHATS_FILE, chats);
   res.json({ success: true });
 });
 
-app.post('/api/chat', authenticateToken, async (req, res) => {
+app.post('/api/chat', async (req, res) => {
   const { chatId, message } = req.body;
 
   if (!message || !message.trim()) {
@@ -143,13 +106,13 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
   }
 
   let chats = readData(CHATS_FILE);
-  let chatSession = chats.find(c => c.userId === req.user.id && c.createdAt === Number(chatId));
+  let chatSession = chats.find(c => c.userId === GLOBAL_USER_ID && c.createdAt === Number(chatId));
 
   let isNewChat = false;
   if (!chatSession) {
     isNewChat = true;
     chatSession = {
-      userId: req.user.id,
+      userId: GLOBAL_USER_ID,
       title: message.substring(0, 30) + (message.length > 30 ? '...' : ''),
       messages: [],
       createdAt: Date.now(),
@@ -157,39 +120,34 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     };
   }
 
-  // Push user message log payload
   chatSession.messages.push({ role: 'user', content: message });
 
   try {
-    // Transform history context system into exact legal OpenAI messages input matching roles
     const messagesPayload = chatSession.messages.map(m => ({
       role: m.role,
       content: m.content
     }));
 
-    // Inject system directive prompt
     messagesPayload.unshift({
       role: 'system',
       content: 'Kamu adalah ErlanggaAi, sebuah sistem kecerdasan buatan premium yang profesional, cerdas, membantu pemrograman, debugging, translasi bahasa, pengerjaan essay, matematika dan general knowledge dengan output berbasis markdown.'
     });
 
-    // Call modern modern OpenAi standard API Responses endpoints
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o', // Model GPT terbaru & aman dari deprecation endpoints lama
+      model: 'gpt-4o', 
       messages: messagesPayload,
       temperature: 0.7
     });
 
     const aiReply = completion.choices[0].message.content;
 
-    // Push response data target matching structural system standard
     chatSession.messages.push({ role: 'assistant', content: aiReply });
     chatSession.updatedAt = new Date().toISOString();
 
     if (isNewChat) {
       chats.push(chatSession);
     } else {
-      const idx = chats.findIndex(c => c.userId === req.user.id && c.createdAt === Number(chatId));
+      const idx = chats.findIndex(c => c.userId === GLOBAL_USER_ID && c.createdAt === Number(chatId));
       if (idx !== -1) chats[idx] = chatSession;
     }
 
@@ -202,15 +160,11 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
   }
 });
 
-// ====================================
-// HEALTH CHECK, 404 & GLOBAL ERROR HANDLERS
-// ====================================
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date(), service: 'ErlanggaAi API Engine' });
 });
 
 app.use((req, res, next) => {
-  // Jika 404, arahkan langsung ke halaman utama chat karena login sudah tidak dipakai
   res.status(404).redirect('/');
 });
 
@@ -219,7 +173,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Terjadi kesalahan sistem internal server.' });
 });
 
-// Execute Cluster Server
 app.listen(PORT, () => {
   console.log(`====================================================`);
   console.log(`🚀 ErlanggaAi Server is perfectly running on port ${PORT}`);
