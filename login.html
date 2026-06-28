@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login & Register - ErlanggaAi</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      --glass-bg: rgba(30, 41, 59, 0.7);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --error: #ef4444;
+      --success: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    body {
+      background: var(--bg-gradient);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: var(--text);
+      overflow-x: hidden;
+    }
+    .container {
+      width: 100%;
+      max-width: 420px;
+      padding: 20px;
+    }
+    .card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 40px 32px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+      transition: transform 0.4s ease, opacity 0.4s ease;
+    }
+    .header { text-align: center; margin-bottom: 32px; }
+    .header h1 { font-size: 2rem; font-weight: 700; background: linear-gradient(to right, #818cf8, #e0e7ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+    .header p { color: var(--text-muted); font-size: 0.95rem; }
+    .form-group { margin-bottom: 20px; position: relative; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 8px; color: var(--text-muted); }
+    .input-wrapper { position: relative; }
+    .form-group input {
+      width: 100%;
+      padding: 12px 16px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 0.95rem;
+      transition: all 0.3s ease;
+    }
+    .form-group input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); }
+    .toggle-pass { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); font-size: 0.85rem; user-select: none; }
+    .validation-msg { font-size: 0.75rem; color: var(--error); margin-top: 4px; display: none; }
+    .options { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; font-size: 0.85rem; }
+    .remember-me { display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-muted); }
+    .remember-me input { cursor: pointer; accent-color: var(--primary); }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--primary);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn:disabled { background: rgba(99, 102, 241, 0.5); cursor: not-allowed; transform: none; }
+    .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .switch-mode { text-align: center; margin-top: 24px; font-size: 0.9rem; color: var(--text-muted); }
+    .switch-mode span { color: var(--primary); cursor: pointer; font-weight: 500; transition: color 0.2s; }
+    .switch-mode span:hover { color: var(--primary-hover); text-decoration: underline; }
+    .toast {
+      position: fixed;
+      top: 24px;
+      right: -400px;
+      padding: 16px 24px;
+      border-radius: 12px;
+      color: white;
+      font-weight: 500;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      transition: right 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .toast.show { right: 24px; }
+    .toast.error { background: var(--error); border-left: 4px solid #b91c1c; }
+    .toast.success { background: var(--success); border-left: 4px solid #047857; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="card" id="loginCard">
+      <div class="header">
+        <h1>ErlanggaAi</h1>
+        <p>Selamat datang kembali, silakan masuk</p>
+      </div>
+      <form id="loginForm" novalidate>
+        <div class="form-group">
+          <label for="loginEmail">Email</label>
+          <input type="email" id="loginEmail" required placeholder="name@example.com">
+          <div class="validation-msg" id="loginEmailMsg">Email tidak valid</div>
+        </div>
+        <div class="form-group">
+          <label for="loginPassword">Password</label>
+          <div class="input-wrapper">
+            <input type="password" id="loginPassword" required placeholder="••••••••">
+            <span class="toggle-pass" onclick="togglePassword('loginPassword')">Lihat</span>
+          </div>
+          <div class="validation-msg" id="loginPasswordMsg">Password minimal 6 karakter</div>
+        </div>
+        <div class="options">
+          <label class="remember-me">
+            <input type="checkbox" id="rememberMe"> Ingat Saya
+          </label>
+        </div>
+        <button type="submit" class="btn" id="loginBtn">
+          <span class="spinner" id="loginSpinner"></span>
+          <span class="btn-text">Masuk</span>
+        </button>
+      </form>
+      <div class="switch-mode">
+        Belum punya akun? <span onclick="switchCard('register')">Daftar</span>
+      </div>
+    </div>
+
+    <div class="card hidden" id="registerCard">
+      <div class="header">
+        <h1>Buat Akun</h1>
+        <p>Mulai pengalaman cerdas bersama ErlanggaAi</p>
+      </div>
+      <form id="registerForm" novalidate>
+        <div class="form-group">
+          <label for="regUsername">Username</label>
+          <input type="text" id="regUsername" required placeholder="username_anda">
+          <div class="validation-msg" id="regUsernameMsg">Username minimal 3 karakter</div>
+        </div>
+        <div class="form-group">
+          <label for="regEmail">Email</label>
+          <input type="email" id="regEmail" required placeholder="name@example.com">
+          <div class="validation-msg" id="regEmailMsg">Format email salah</div>
+        </div>
+        <div class="form-group">
+          <label for="regPassword">Password</label>
+          <div class="input-wrapper">
+            <input type="password" id="regPassword" required placeholder="••••••••">
+            <span class="toggle-pass" onclick="togglePassword('regPassword')">Lihat</span>
+          </div>
+          <div class="validation-msg" id="regPasswordMsg">Password minimal 6 karakter</div>
+        </div>
+        <button type="submit" class="btn" id="registerBtn">
+          <span class="spinner" id="registerSpinner"></span>
+          <span class="btn-text">Daftar Akun</span>
+        </button>
+      </form>
+      <div class="switch-mode">
+        Sudah punya akun? <span onclick="switchCard('login')">Masuk</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toastNotification"></div>
+
+  <script>
+
+if (!localStorage.getItem('token')) {
+  localStorage.setItem('token', 'erlangga-ai');
+}
+
+
+    function togglePassword(id) {
+      const input = document.getElementById(id);
+      const trigger = input.nextElementSibling;
+      if (input.type === 'password') {
+        input.type = 'text';
+        trigger.textContent = 'Sembunyikan';
+      } else {
+        input.type = 'password';
+        trigger.textContent = 'Lihat';
+      }
+    }
+
+    function switchCard(mode) {
+      const loginCard = document.getElementById('loginCard');
+      const registerCard = document.getElementById('registerCard');
+      if (mode === 'register') {
+        loginCard.classList.add('hidden');
+        registerCard.classList.remove('hidden');
+      } else {
+        registerCard.classList.add('hidden');
+        loginCard.classList.remove('hidden');
+      }
+    }
+
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toastNotification');
+      toast.className = `toast ${type} show`;
+      toast.textContent = message;
+      setTimeout(() => { toast.classList.remove('show'); }, 4000);
+    }
+
+    // Realtime Validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    document.getElementById('loginEmail').addEventListener('input', function() {
+      document.getElementById('loginEmailMsg').style.display = emailRegex.test(this.value) ? 'none' : 'block';
+    });
+    document.getElementById('loginPassword').addEventListener('input', function() {
+      document.getElementById('loginPasswordMsg').style.display = this.value.length >= 6 ? 'none' : 'block';
+    });
+    document.getElementById('regUsername').addEventListener('input', function() {
+      document.getElementById('regUsernameMsg').style.display = this.value.trim().length >= 3 ? 'none' : 'block';
+    });
+    document.getElementById('regEmail').addEventListener('input', function() {
+      document.getElementById('regEmailMsg').style.display = emailRegex.test(this.value) ? 'none' : 'block';
+    });
+    document.getElementById('regPassword').addEventListener('input', function() {
+      document.getElementById('regPasswordMsg').style.display = this.value.length >= 6 ? 'none' : 'block';
+    });
+
+    // Form Submissions
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+      const rememberMe = document.getElementById('rememberMe').checked;
+
+      if (!emailRegex.test(email) || password.length < 6) {
+        return showToast('Harap isi form login dengan valid.', 'error');
+      }
+
+      setLoading('login', true);
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Login gagal');
+        
+        localStorage.setItem('token', data.token);
+        if (rememberMe) localStorage.setItem('remember', 'true');
+        showToast('Login berhasil! Mengalihkan...', 'success');
+        setTimeout(() => { window.location.href = '/'; }, 1000);
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        setLoading('login', false);
+      }
+    });
+
+    document.getElementById('registerForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const username = document.getElementById('regUsername').value.trim();
+      const email = document.getElementById('regEmail').value;
+      const password = document.getElementById('regPassword').value;
+
+      if (username.length < 3 || !emailRegex.test(email) || password.length < 6) {
+        return showToast('Harap lengkapi form pendaftaran dengan benar.', 'error');
+      }
+
+      setLoading('register', true);
+      try {
+        const response = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, email, password })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Pendaftaran gagal');
+        
+        showToast('Registrasi sukses! Silakan login.', 'success');
+        switchCard('login');
+        document.getElementById('loginEmail').value = email;
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        setLoading('register', false);
+      }
+    });
+
+    function setLoading(formType, isLoading) {
+      const btn = document.getElementById(`${formType}Btn`);
+      const spinner = document.getElementById(`${formType}Spinner`);
+      const text = btn.querySelector('.btn-text');
+      btn.disabled = isLoading;
+      if (isLoading) {
+        spinner.style.display = 'block';
+        text.style.visibility = 'hidden';
+      } else {
+        spinner.style.display = 'none';
+        text.style.visibility = 'visible';
+      }
+    }
+  </script>
+</body>
+</html>
